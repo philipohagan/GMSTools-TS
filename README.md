@@ -2,8 +2,6 @@
 
 A TypeScript scraping toolkit for extracting appointments and contacts data from the [Who's The Umpire](https://secure.whostheumpire.com) Game Management System. Outputs to CSV.
 
-> This is the original TypeScript implementation of GMSTools. The actively maintained version has been [rewritten in Python](https://github.com/phil/GMSTools).
-
 ## Requirements
 
 - Node.js 20+
