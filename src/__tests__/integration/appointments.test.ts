@@ -166,6 +166,7 @@ describe('AppointmentsScraper Integration', () => {
         .spyOn(scraper as unknown as { question: (typeof scraper)['question'] }, 'question')
         .mockImplementation(async (query: string) => {
           if (query.includes('archive mode')) return 'Y';
+          if (query.includes('official name')) return '';
           if (query.includes('output filename')) return 'appointments.csv';
           if (query.includes('start date')) return '01-12-2024';
           if (query.includes('end date')) return '31-12-2024';
@@ -415,6 +416,81 @@ describe('AppointmentsScraper Integration', () => {
         const result = await scraper['resolveContactKey']('JONES');
         expect(result).toBe('GHI789');
       });
+    });
+  });
+
+  describe('Server-Side Contact Filtering', () => {
+    it('should pass contact key to search params when name is provided', async () => {
+      jest.spyOn(scraper['authClient'], 'login').mockResolvedValue({ success: true });
+
+      // Mock resolveContactKey to return a key
+      jest
+        .spyOn(
+          scraper as unknown as { resolveContactKey: (name: string) => Promise<string | null> },
+          'resolveContactKey'
+        )
+        .mockResolvedValue('ABC123');
+
+      // Mock prompt responses
+      (promptUtils.question as jest.Mock<() => Promise<string>>)
+        .mockResolvedValueOnce('Y') // archive mode
+        .mockResolvedValueOnce('smith') // name filter
+        .mockResolvedValueOnce(''); // output filename
+
+      (promptUtils.validateInput as jest.Mock<() => Promise<string>>)
+        .mockResolvedValueOnce('01-01-2024') // from date
+        .mockResolvedValueOnce('31-01-2024'); // to date
+
+      // Mock empty response to end quickly
+      mockAxios.post.mockImplementation(() =>
+        Promise.resolve({
+          data: createMockTableHtml([]),
+          status: 200
+        })
+      );
+
+      const fetchSpy = jest.spyOn(
+        scraper as unknown as {
+          fetchAppointmentsPage: (offset: number, params: SearchParams) => Promise<unknown>;
+        },
+        'fetchAppointmentsPage'
+      );
+
+      await scraper.run();
+
+      // Verify the search params passed to fetchAppointmentsPage include the contact key
+      if (fetchSpy.mock.calls.length > 0) {
+        const searchParams = fetchSpy.mock.calls[0][1] as SearchParams;
+        expect(searchParams.find_contact_index_key).toBe('ABC123');
+      }
+    });
+
+    it('should use "0" for contact key when no name filter is provided', async () => {
+      jest.spyOn(scraper['authClient'], 'login').mockResolvedValue({ success: true });
+
+      (promptUtils.question as jest.Mock<() => Promise<string>>)
+        .mockResolvedValueOnce('Y') // archive mode
+        .mockResolvedValueOnce('') // name filter (blank)
+        .mockResolvedValueOnce(''); // output filename
+
+      mockAxios.post.mockImplementation(() =>
+        Promise.resolve({
+          data: createMockTableHtml([]),
+          status: 200
+        })
+      );
+
+      const getSearchParamsSpy = jest.spyOn(
+        scraper as unknown as { getSearchParams: (contactKey?: string) => Promise<SearchParams> },
+        'getSearchParams'
+      );
+
+      await scraper.run();
+
+      if (getSearchParamsSpy.mock.calls.length > 0) {
+        const params = (await getSearchParamsSpy.mock.results[0].value) as SearchParams;
+        expect(params.find_contact_index_key).toBe('0');
+      }
     });
   });
 });

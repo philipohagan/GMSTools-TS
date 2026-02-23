@@ -15,7 +15,7 @@ export class AppointmentsScraper extends BaseScraper {
     super(options);
   }
 
-  private async getSearchParams(): Promise<SearchParams> {
+  private async getSearchParams(contactKey?: string): Promise<SearchParams> {
     const dateRegex = /^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-\d{4}$/;
     const dateErrorMsg = 'Invalid date format. Please use DD-MM-YYYY (e.g., 01-12-2024)';
 
@@ -48,7 +48,7 @@ export class AppointmentsScraper extends BaseScraper {
       find_to_date: to_date,
       find_team_index_key: '0',
       find_month: '0',
-      find_contact_index_key: '0',
+      find_contact_index_key: contactKey || '0',
       find_competition_index_key: '0',
       find_contact_type_index_key: '0',
       find_organisation_index_key: orgIndex,
@@ -172,7 +172,7 @@ export class AppointmentsScraper extends BaseScraper {
         find_to_date: searchParams.find_to_date,
         find_team_index_key: '0',
         find_month: '0',
-        find_contact_index_key: '0',
+        find_contact_index_key: searchParams.find_contact_index_key,
         find_competition_index_key: '0',
         find_contact_type_index_key: '0',
         find_organisation_index_key: searchParams.find_organisation_index_key,
@@ -215,26 +215,25 @@ export class AppointmentsScraper extends BaseScraper {
         return;
       }
 
-      const searchParams = await this.getSearchParams();
+      // Ask for name filter before search params (needs server lookup)
+      const nameFilter = await question(this.rl, 'Filter by official name (leave blank for all): ');
 
-      // Get output filename upfront
+      let contactKey: string | undefined;
+      if (nameFilter) {
+        const resolved = await this.resolveContactKey(nameFilter);
+        if (resolved === null) {
+          return;
+        }
+        contactKey = resolved;
+      }
+
+      const searchParams = await this.getSearchParams(contactKey);
+
+      // Get output filename
       const defaultFilename = `appointments_${searchParams.find_from_date}_to_${searchParams.find_to_date}.csv`;
       const outputFilename = await this.getOutputFilename(defaultFilename);
 
-      const nameFilter = await question(this.rl, 'Filter by official name (leave blank for all): ');
-
-      let appointmentsData = await this.getAppointmentsData(searchParams);
-
-      if (nameFilter) {
-        const totalBefore = appointmentsData.length;
-        const filter = nameFilter.toLowerCase();
-        appointmentsData = appointmentsData.filter((row) =>
-          row.Official.toLowerCase().includes(filter)
-        );
-        console.log(
-          `\nFiltered by name "${nameFilter}": ${appointmentsData.length} of ${totalBefore} appointments match.`
-        );
-      }
+      const appointmentsData = await this.getAppointmentsData(searchParams);
 
       if (appointmentsData.length === 0) {
         console.log('No appointments found. Exiting...');
