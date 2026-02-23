@@ -459,38 +459,27 @@ describe('AppointmentsScraper Integration', () => {
       await scraper.run();
 
       // Verify the search params passed to fetchAppointmentsPage include the contact key
-      if (fetchSpy.mock.calls.length > 0) {
-        const searchParams = fetchSpy.mock.calls[0][1] as SearchParams;
-        expect(searchParams.find_contact_index_key).toBe('ABC123');
-      }
+      expect(fetchSpy).toHaveBeenCalled();
+      const searchParams = fetchSpy.mock.calls[0][1] as SearchParams;
+      expect(searchParams.find_contact_index_key).toBe('ABC123');
     });
 
-    it('should use "0" for contact key when no name filter is provided', async () => {
-      jest.spyOn(scraper['authClient'], 'login').mockResolvedValue({ success: true });
+    it('should default to "0" for contact key when no key is provided', async () => {
+      (promptUtils.validateInput as jest.Mock<() => Promise<string>>)
+        .mockResolvedValueOnce('01-01-2024')
+        .mockResolvedValueOnce('31-01-2024');
 
-      (promptUtils.question as jest.Mock<() => Promise<string>>)
-        .mockResolvedValueOnce('Y') // archive mode
-        .mockResolvedValueOnce('') // name filter (blank)
-        .mockResolvedValueOnce(''); // output filename
+      const params = await scraper['getSearchParams']();
+      expect(params.find_contact_index_key).toBe('0');
+    });
 
-      mockAxios.post.mockImplementation(() =>
-        Promise.resolve({
-          data: createMockTableHtml([]),
-          status: 200
-        })
-      );
+    it('should use provided contact key in search params', async () => {
+      (promptUtils.validateInput as jest.Mock<() => Promise<string>>)
+        .mockResolvedValueOnce('01-01-2024')
+        .mockResolvedValueOnce('31-01-2024');
 
-      const getSearchParamsSpy = jest.spyOn(
-        scraper as unknown as { getSearchParams: (contactKey?: string) => Promise<SearchParams> },
-        'getSearchParams'
-      );
-
-      await scraper.run();
-
-      if (getSearchParamsSpy.mock.calls.length > 0) {
-        const params = (await getSearchParamsSpy.mock.results[0].value) as SearchParams;
-        expect(params.find_contact_index_key).toBe('0');
-      }
+      const params = await scraper['getSearchParams']('ABC123');
+      expect(params.find_contact_index_key).toBe('ABC123');
     });
   });
 });
