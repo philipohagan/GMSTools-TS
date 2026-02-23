@@ -371,6 +371,51 @@ describe('AppointmentsScraper Integration', () => {
       expect(contacts).toHaveLength(1);
       expect(contacts[0]).toEqual({ name: 'SMITH, John', key: 'ABC123' });
     });
+
+    describe('Contact Key Resolution', () => {
+      const mockContacts = [
+        { name: 'SMITH, John', key: 'ABC123' },
+        { name: 'SMITH, Jane', key: 'DEF456' },
+        { name: 'JONES, Sarah', key: 'GHI789' }
+      ];
+
+      beforeEach(() => {
+        jest
+          .spyOn(
+            scraper as unknown as { fetchContactList: () => Promise<typeof mockContacts> },
+            'fetchContactList'
+          )
+          .mockResolvedValue(mockContacts);
+      });
+
+      it('should return the key when exactly one contact matches', async () => {
+        const result = await scraper['resolveContactKey']('jones');
+        expect(result).toBe('GHI789');
+      });
+
+      it('should return null when no contacts match', async () => {
+        const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+        const result = await scraper['resolveContactKey']('nobody');
+        expect(result).toBeNull();
+        consoleSpy.mockRestore();
+      });
+
+      it('should prompt user to select when multiple contacts match', async () => {
+        const mockPrompt = jest.requireMock('../../core/utils/prompt') as {
+          selectFromList: jest.Mock<(...args: unknown[]) => Promise<string>>;
+        };
+        mockPrompt.selectFromList.mockResolvedValueOnce('ABC123');
+
+        const result = await scraper['resolveContactKey']('smith');
+        expect(result).toBe('ABC123');
+        expect(mockPrompt.selectFromList).toHaveBeenCalled();
+      });
+
+      it('should match case-insensitively', async () => {
+        const result = await scraper['resolveContactKey']('JONES');
+        expect(result).toBe('GHI789');
+      });
+    });
   });
 });
 

@@ -78,6 +78,32 @@ export class AppointmentsScraper extends BaseScraper {
     return contacts;
   }
 
+  private async resolveContactKey(nameFilter: string): Promise<string | null> {
+    console.log(`\nLooking up contact "${nameFilter}"...`);
+    const contacts = await this.fetchContactList();
+    const filter = nameFilter.toLowerCase();
+
+    const matches = contacts.filter((c) => c.name.toLowerCase().includes(filter));
+
+    if (matches.length === 0) {
+      console.log(`No contacts found matching "${nameFilter}".`);
+      return null;
+    }
+
+    if (matches.length === 1) {
+      console.log(`Found contact: ${matches[0].name}`);
+      return matches[0].key;
+    }
+
+    console.log(`\nMultiple contacts match "${nameFilter}":`);
+    const options: SelectionOption<string>[] = matches.map((m) => ({
+      name: m.name,
+      value: m.key
+    }));
+
+    return selectFromList(this.rl, options, 'Select contact');
+  }
+
   private processTableRows($: CheerioAPI, rows: Cheerio<Element>): AppointmentData[] {
     const batchData: AppointmentData[] = [];
 
