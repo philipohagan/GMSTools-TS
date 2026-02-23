@@ -317,6 +317,61 @@ describe('AppointmentsScraper Integration', () => {
       expect(result[0].Status).toBe('Y');
     });
   });
+
+  describe('Contact List Fetching', () => {
+    it('should parse contact options from the appointments page dropdown', async () => {
+      jest.spyOn(scraper['authClient'], 'login').mockResolvedValue({ success: true });
+
+      const mockPageHtml = `
+        <html><body>
+          <select id="findContactIndexKey" name="find_contact_index_key">
+            <option value="0">All contacts</option>
+            <option value="ABC123">SMITH, John</option>
+            <option value="DEF456">JONES, Sarah</option>
+          </select>
+        </body></html>
+      `;
+
+      mockAxios.get.mockImplementationOnce(() =>
+        Promise.resolve({
+          data: mockPageHtml,
+          status: 200
+        })
+      );
+
+      const contacts = await scraper['fetchContactList']();
+
+      expect(contacts).toEqual([
+        { name: 'SMITH, John', key: 'ABC123' },
+        { name: 'JONES, Sarah', key: 'DEF456' }
+      ]);
+    });
+
+    it('should skip the "All contacts" option with value "0"', async () => {
+      jest.spyOn(scraper['authClient'], 'login').mockResolvedValue({ success: true });
+
+      const mockPageHtml = `
+        <html><body>
+          <select id="findContactIndexKey" name="find_contact_index_key">
+            <option value="0">All contacts</option>
+            <option value="ABC123">SMITH, John</option>
+          </select>
+        </body></html>
+      `;
+
+      mockAxios.get.mockImplementationOnce(() =>
+        Promise.resolve({
+          data: mockPageHtml,
+          status: 200
+        })
+      );
+
+      const contacts = await scraper['fetchContactList']();
+
+      expect(contacts).toHaveLength(1);
+      expect(contacts[0]).toEqual({ name: 'SMITH, John', key: 'ABC123' });
+    });
+  });
 });
 
 function createMockTableHtml(appointments: (typeof mockAppointmentData)[]): string {

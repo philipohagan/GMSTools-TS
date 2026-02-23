@@ -58,6 +58,26 @@ export class AppointmentsScraper extends BaseScraper {
     };
   }
 
+  private async fetchContactList(): Promise<Array<{ name: string; key: string }>> {
+    const url = '/db_admin/appointments.php?function=view';
+    const html = await this.client.get<string>(url, {
+      Referer: 'https://secure.whostheumpire.com/db_admin/appointments.php?function=view'
+    });
+
+    const $ = cheerio.load(html);
+    const contacts: Array<{ name: string; key: string }> = [];
+
+    $('#findContactIndexKey option').each((_, el) => {
+      const key = $(el).attr('value') || '';
+      const name = $(el).text().trim();
+      if (key && key !== '0') {
+        contacts.push({ name, key });
+      }
+    });
+
+    return contacts;
+  }
+
   private processTableRows($: CheerioAPI, rows: Cheerio<Element>): AppointmentData[] {
     const batchData: AppointmentData[] = [];
 
@@ -175,7 +195,20 @@ export class AppointmentsScraper extends BaseScraper {
       const defaultFilename = `appointments_${searchParams.find_from_date}_to_${searchParams.find_to_date}.csv`;
       const outputFilename = await this.getOutputFilename(defaultFilename);
 
-      const appointmentsData = await this.getAppointmentsData(searchParams);
+      const nameFilter = await question(this.rl, 'Filter by official name (leave blank for all): ');
+
+      let appointmentsData = await this.getAppointmentsData(searchParams);
+
+      if (nameFilter) {
+        const totalBefore = appointmentsData.length;
+        const filter = nameFilter.toLowerCase();
+        appointmentsData = appointmentsData.filter((row) =>
+          row.Official.toLowerCase().includes(filter)
+        );
+        console.log(
+          `\nFiltered by name "${nameFilter}": ${appointmentsData.length} of ${totalBefore} appointments match.`
+        );
+      }
 
       if (appointmentsData.length === 0) {
         console.log('No appointments found. Exiting...');
