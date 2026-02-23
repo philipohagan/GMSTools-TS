@@ -81,9 +81,12 @@ export class AppointmentsScraper extends BaseScraper {
   private async resolveContactKey(nameFilter: string): Promise<string | null> {
     console.log(`\nLooking up contact "${nameFilter}"...`);
     const contacts = await this.fetchContactList();
-    const filter = nameFilter.toLowerCase();
+    const filterWords = nameFilter.toLowerCase().split(/\s+/).filter(Boolean);
 
-    const matches = contacts.filter((c) => c.name.toLowerCase().includes(filter));
+    const matches = contacts.filter((c) => {
+      const name = c.name.toLowerCase();
+      return filterWords.every((word) => name.includes(word));
+    });
 
     if (matches.length === 0) {
       console.log(`No contacts found matching "${nameFilter}".`);

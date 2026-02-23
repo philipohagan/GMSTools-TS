@@ -416,6 +416,16 @@ describe('AppointmentsScraper Integration', () => {
         const result = await scraper['resolveContactKey']('JONES');
         expect(result).toBe('GHI789');
       });
+
+      it('should match multi-word queries in any order', async () => {
+        const result = await scraper['resolveContactKey']('Sarah Jones');
+        expect(result).toBe('GHI789');
+      });
+
+      it('should match multi-word queries against "SURNAME, First" format', async () => {
+        const result = await scraper['resolveContactKey']('John Smith');
+        expect(result).toBe('ABC123');
+      });
     });
   });
 
