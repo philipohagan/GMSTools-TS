@@ -16,8 +16,7 @@ dist/
 Thumbs.db
 
 # Generated files
-*.csv 
-package-lock.json
+*.csv
 
 # Test coverage
 coverage/
