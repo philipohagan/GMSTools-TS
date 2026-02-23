@@ -28,11 +28,9 @@ npm run test:coverage   # Coverage report
 
 ## CI
 
-GitHub Actions runs two workflows on push/PR to `main`:
-- **Code Quality** (`code-quality.yml`) — ESLint + TypeScript type checking
-- **Tests** (`test.yml`) — Jest test suite with coverage
-
-Both use Node.js 20.
+GitHub Actions workflows (Node.js 20):
+- **Code Quality** (`code-quality.yml`) — ESLint + TypeScript type checking. Runs on pushes to **all branches** and PRs to `main`.
+- **Tests** (`test.yml`) — Jest test suite with coverage. Runs on pushes to `main` and PRs to `main`.
 
 ## Architecture
 
@@ -69,16 +67,20 @@ CLI (scrapers/*/index.ts) → BaseScraper → AuthClient → BaseClient (Axios +
 
 **HTML Parsing** — Cheerio parses response HTML. Table data is in `#queryResultsTable_2 tbody tr`. Each scraper's `processTableRows()` method extracts column data with specific indexes.
 
+**Server-Side Filtering** — The GMS appointments page at `/db_admin/appointments.php?function=view` has a `<select id="findContactIndexKey">` dropdown with ~6400 contacts in `SURNAME, First` format. The `find_contact_index_key` param filters server-side. Note: when filtering by contact, the server may ignore the organization filter and return all appointments for that contact across organizations.
+
+**Contact Name Matching** — Multi-word search queries are split and matched independently (all words must appear, any order) to handle "First Last" → "LAST, First" format differences.
+
 **Configuration** — `src/config.ts` contains API timeouts (60s), retry settings (3 attempts, 3s delay), pagination limits, default search params, and the 1Password item name.
+
+## Code Style
+
+- `@typescript-eslint/no-explicit-any` is set to `'error'` — use specific types instead of `any`.
+- `@/` path alias maps to `src/` in tests (configured in `jest.config.ts`).
 
 ## Testing
 
-Tests use Jest with `nock` for HTTP mocking. Test files:
-- `__tests__/integration/appointments.test.ts` — Appointments scraper flow with mocked HTTP
-- `__tests__/integration/contacts.test.ts` — Contacts scraper flow with mocked HTTP
-- `__tests__/unit/csv.test.ts` — CSV writer
-- `__tests__/helpers/mockData.ts` — Shared mock data
-- `__tests__/setup.ts` — Test setup (nock configuration)
+Tests live in `src/__tests__/` with `unit/` and `integration/` subdirectories plus a `helpers/` dir for shared mock data. Uses Jest with `nock` for HTTP mocking.
 
 ## External Dependencies
 
