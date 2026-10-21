@@ -93,6 +93,7 @@ jest.mock('../../core/utils/time', () => ({
 
 // Mock crypto for deterministic IDs in tests
 jest.mock('crypto', () => ({
+  ...jest.requireActual<typeof import('crypto')>('crypto'),
   createHash: jest.fn().mockImplementation(() => ({
     update: jest.fn().mockReturnThis(),
     digest: jest.fn().mockImplementation(() => {
